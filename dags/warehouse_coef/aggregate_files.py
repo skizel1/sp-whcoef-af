@@ -179,9 +179,6 @@ def prepare_mart(current_datetime):
     s3_save_parquet(limits_by_date, f'project={PROJECT_NAME}/data_mart=limits_by_date/{day_date}.parquet')
 
 def merge_marts(current_datetime, calc_depth_days):
-    '''
-        target_dates_list - надо сравнить? или получить все и потом отфилтровать по дням?
-    '''
     import pandas as pd
     s3_client = s3_create_boto_client(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, REGION_NAME, ENDPOINT)
     
