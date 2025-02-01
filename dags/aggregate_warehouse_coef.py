@@ -63,7 +63,7 @@ def create_dag():
         provide_context = True,
         op_kwargs = {
             'current_datetime': '{{macros.datetime.strftime((execution_date + macros.timedelta(hours = 3)), "%Y-%m-%dT%H:%M:%S")}}'
-            , 'calc_depth_days': 18
+            , 'calc_depth_days': 30
         },
         dag = dag
     )

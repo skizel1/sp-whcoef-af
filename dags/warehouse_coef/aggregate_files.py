@@ -100,9 +100,7 @@ def s3_read_parquet(s3_all_objects):
     return df
 
 def aggregate_files(granularity_from, granularity_to, current_datetime):
-    print(S3_BUCKET_NAME)
     s3_client = s3_create_boto_client(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, REGION_NAME, ENDPOINT)
-    ##s3_all_objects = s3_get_objects_list(s3_client, granularity_from, current_datetime)
     granularity_from_datetime = truncate_datetime(granularity_from, current_datetime)
     granularity_to_datetime = truncate_datetime(granularity_to, current_datetime)
     #period_start_datetime = truncate_datetime(granularity_to, current_datetime)
@@ -181,17 +179,39 @@ def prepare_mart(current_datetime):
     s3_save_parquet(limits_by_date, f'project={PROJECT_NAME}/data_mart=limits_by_date/{day_date}.parquet')
 
 def merge_marts(current_datetime, calc_depth_days):
+    '''
+        target_dates_list - надо сравнить? или получить все и потом отфилтровать по дням?
+    '''
     import pandas as pd
+    s3_client = s3_create_boto_client(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, REGION_NAME, ENDPOINT)
+    
+
     calc_depth_days = calc_depth_days - 1
     period_end_string = truncate_datetime('by_hour', current_datetime)
     period_end_date = datetime.strptime(period_end_string, TARGET_DATETIME_FORMAT)
     period_start_date = period_end_date - timedelta(days = calc_depth_days)
+    period_start_string = datetime.strftime(period_start_date, TARGET_DATETIME_FORMAT)
+    period_month_start_date = truncate_datetime('by_day', period_start_string)
+    
 
     datetimes_list = pd.date_range(period_start_date, period_end_date, freq = 'd').to_list()
+    month_start_dates_list = pd.date_range(period_month_start_date, period_end_date, freq = 'MS').to_list()
+    s3_objects = []
+    for month_start_date in month_start_dates_list:
+        month_prefix = str(month_start_date)[0:7]
+        path_to_read = f'project={PROJECT_NAME}/data_mart=limits_by_date/{month_prefix}'
+        s3_objects += s3_get_objects_list(s3_client, path_to_read)
 
     target_dates_list = [date.strftime(TARGET_DATETIME_FORMAT) for date in datetimes_list]
+    fact_dates_list = [s3_object.split('/')[-1].split('.')[0] for s3_object in s3_objects]
+
+    dates_list_to_read = []
+    for date in target_dates_list:
+        if date in fact_dates_list:
+            dates_list_to_read.append(date)
+
     files_prefix = f'project={PROJECT_NAME}/data_mart=limits_by_date'
-    s3_object_files_path = [f'{files_prefix}/{file_date}.parquet' for file_date in target_dates_list]
+    s3_object_files_path = [f'{files_prefix}/{file_date}.parquet' for file_date in dates_list_to_read]
     print(s3_object_files_path)
 
     df = s3_read_parquet(s3_object_files_path)
@@ -217,4 +237,4 @@ def merge_marts(current_datetime, calc_depth_days):
 #prepare_mart('2025-01-30T00:00:00')
 #prepare_mart('2025-01-31T00:00:00')
 
-#merge_marts('2025-01-31T00:00:00', calc_depth_days = 17)
+#merge_marts('2025-02-01T00:00:00', calc_depth_days = 30)
